@@ -1,10 +1,12 @@
 # ingest.py
 import os
 import shutil
+import pickle
 import pdfplumber
+from dotenv import load_dotenv
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+
+load_dotenv()
 
 BOOKS_FOLDER = "./Books"
 DB_FOLDER = "./trading_db"
@@ -26,21 +28,19 @@ def load_pdfs(folder):
     return all_text
 
 def build_vectorstore():
-    # ✅ Delete old database first to avoid duplicates
     if os.path.exists(DB_FOLDER):
-        print("🗑️  Deleting old knowledge base to avoid duplicates...")
+        print("🗑️ Deleting old knowledge base...")
         shutil.rmtree(DB_FOLDER)
-        print("✅ Old data cleared!")
+
+    os.makedirs(DB_FOLDER)
 
     print("📚 Loading your trading books...")
     pages = load_pdfs(BOOKS_FOLDER)
 
     if not pages:
-        print("❌ No PDF books found in the /books folder!")
-        print("   Please add your trading PDF books to the /books folder first.")
+        print("❌ No PDF books found!")
         return
 
-    # Split into chunks
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=150
@@ -54,25 +54,30 @@ def build_vectorstore():
             docs.append(chunk)
             metadatas.append({"source": page["source"]})
 
-    print(f"✅ Total chunks created: {len(docs)}")
+    print(f"✅ Total chunks: {len(docs)}")
 
-    print("🧠 Creating embeddings (this may take a few minutes)...")
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    # Save chunks and metadata as pickle files
+    with open(f"{DB_FOLDER}/chunks.pkl", "wb") as f:
+        pickle.dump(docs, f)
 
-    vectorstore = Chroma.from_texts(
-        texts=docs,
-        embedding=embeddings,
-        metadatas=metadatas,
-        persist_directory=DB_FOLDER
-    )
-    vectorstore.persist()
+    with open(f"{DB_FOLDER}/metadatas.pkl", "wb") as f:
+        pickle.dump(metadatas, f)
 
-    print(f"\n🎉 Done! Knowledge base saved with {len(docs)} chunks.")
-    print(f"📚 Books indexed: {len(set(m['source'] for m in metadatas))}")
-    for book in set(m['source'] for m in metadatas):
-        print(f"   ✅ {book}")
+    # Build TF-IDF index
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    import numpy as np
+
+    vectorizer = TfidfVectorizer(max_features=10000, stop_words='english')
+    tfidf_matrix = vectorizer.fit_transform(docs)
+
+    with open(f"{DB_FOLDER}/vectorizer.pkl", "wb") as f:
+        pickle.dump(vectorizer, f)
+
+    import scipy.sparse as sp
+    sp.save_npz(f"{DB_FOLDER}/tfidf_matrix.npz", tfidf_matrix)
+
+    print("🎉 Knowledge base saved successfully!")
+    print(f"📚 Total books indexed: {len(set(m['source'] for m in metadatas))}")
 
 if __name__ == "__main__":
     build_vectorstore()
