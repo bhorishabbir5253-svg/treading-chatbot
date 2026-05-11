@@ -6,7 +6,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
-BOOKS_FOLDER = "./books"
+BOOKS_FOLDER = "./Books"
 DB_FOLDER = "./trading_db"
 
 def load_pdfs(folder):
