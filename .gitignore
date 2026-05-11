@@ -1,0 +1,26 @@
+# Virtual Environment
+venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Vector Database (will be rebuilt on server)
+trading_db/
+
+# Environment variables (keep API keys safe)
+.env
+
+# VS Code settings
+.vscode/
+
+# Windows system files
+Thumbs.db
+desktop.ini
+
+# Byte-compiled files
+*.egg-info/
+dist/
+build/
